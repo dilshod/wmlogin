@@ -34,6 +34,10 @@ module WmLogin
 
     http = Net::HTTP.new('login.wmtransfer.com', 443)
     http.use_ssl = true
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    #http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    #http.cert = OpenSSL::X509::Certificate.new(File.read(File.dirname(__FILE__) + "/wmtransfer.pem"))
+    #http.ca_file = File.dirname(__FILE__) + "/wmtransfer.pem"
     path = '/ws/authorize.xiface'
 
     data = ("<request><siteHolder>%s</siteHolder><user>%s</user><ticket>%s</ticket>" +

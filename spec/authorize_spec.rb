@@ -27,6 +27,8 @@ describe "WmLogin.authorize" do
     http = mock("net/http")
     Net::HTTP.should_receive(:new).with('login.wmtransfer.com', 443).and_return(http)
     http.should_receive("use_ssl=").with(true)
+    http.should_receive("verify_mode=").with(OpenSSL::SSL::VERIFY_NONE)
+    #http.should_receive("ca_file=").with(instance_of(String))
     http.should_receive(:post).with("/ws/authorize.xiface", instance_of(String), instance_of(Hash)).
       and_return([nil, "<response retval='0' />"])
 
@@ -46,6 +48,8 @@ describe "WmLogin.authorize" do
     http = mock("net/http")
     Net::HTTP.should_receive(:new).with('login.wmtransfer.com', 443).and_return(http)
     http.should_receive("use_ssl=").with(true)
+    http.should_receive("verify_mode=").with(OpenSSL::SSL::VERIFY_NONE)
+    #http.should_receive("ca_file=").with(instance_of(String))
     http.should_receive(:post).with("/ws/authorize.xiface", instance_of(String), instance_of(Hash)).
       and_return([nil, "<response retval='0' />"])
 
@@ -76,6 +80,8 @@ describe "ActionWmLogin.wmlogin" do
     http = mock("net/http")
     Net::HTTP.should_receive(:new).with('login.wmtransfer.com', 443).and_return(http)
     http.should_receive("use_ssl=").with(true)
+    http.should_receive("verify_mode=").with(OpenSSL::SSL::VERIFY_NONE)
+    #http.should_receive("ca_file=").with(instance_of(String))
     http.should_receive(:post).with("/ws/authorize.xiface", instance_of(String), instance_of(Hash)).
       and_return([nil, "<response retval='0' />"])
 
