@@ -1,0 +1,36 @@
+WmLogin
+=======
+
+Плагин ruby on rails для аутентификации пользователей через систему webmoney.
+
+Методы класса wmlogin
+---------------------
+параметры:
+  rid - идентификатор урла
+  wmid - wmid держателя сайта
+
+Метод wmlogin проверяет авторизацию пользователя, если не авторизован то перенаправляется
+на сайт вебмани для аутентификации пользователя, после аутентификации управление передается
+в url привязанный к переданному rid.
+
+Методы:
+
+
+Пример
+======
+
+skip_before_filter :verify_authenticity_token используется только когда используется
+protect_from_forgery (см. application_controller.rb), в only указывается метод из урла связанноку к rid.
+
+class HomeController < ApplicationController
+  wmlogin :rid => "93e78297-57b6-45ec-929c-9da300d724e8", :wmid => "698002155957"
+  skip_before_filter :verify_authenticity_token, :only => [:show]
+
+  def show
+    render :text => "<html><body><a href='/home/main'>main</a></body></html>"
+  end
+
+  def main
+    render :text => 'qwe'
+  end
+end
