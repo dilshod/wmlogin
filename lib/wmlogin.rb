@@ -13,9 +13,9 @@ module WmLogin
   # return status code https://login.wmtransfer.com/Help.aspx?AK=ws/result
   #
   def self.authorize(request, rid, wmid)
-    if request.params[:WmLogin_Ticket].blank? && request.session[:wminfo].blank?
+    if request.params['WmLogin_Ticket'].blank? && request.session[:wminfo].blank?
       info = nil
-    elsif request.params[:WmLogin_Ticket].blank?
+    elsif request.params['WmLogin_Ticket'].blank?
       info = request.session[:wminfo]
     else
       info = {
@@ -30,36 +30,30 @@ module WmLogin
       }
       request.session[:wminfo] = info
     end
+    return :unauthorized unless info
 
-    if info
-      http = Net::HTTP.new('login.wmtransfer.com', 443)
-      http.use_ssl = true
-      path = '/ws/authorize.xiface'
+    http = Net::HTTP.new('login.wmtransfer.com', 443)
+    http.use_ssl = true
+    path = '/ws/authorize.xiface'
 
-      data = ("<request><siteHolder>%s</siteHolder><user>%s</user><ticket>%s</ticket>" +
-              "<urlId>%s</urlId><authType>%s</authType><userAddress>%s</userAddress></request>") %
-             [wmid, info[:wmid], info[:ticket], info[:url_id], info[:auth_type], info[:user_ip]]
-      headers = {
-        'Content-Type' => 'application/x-www-form-urlencoded'
-      }
-      begin
-        puts data.inspect
-        resp, data = http.post(path, data, headers)
-        puts data.inspect
-        doc = REXML::Document.new(data)
-        return doc.elements["response"].attributes["retval"].to_i
-      rescue Exception => e
-        # TODO: log this error
-        Rails.logger.error("WmLogin authorize exception: " + e.inspect)
-        # internal error
-        return -1
-      end
-    else
-      return :unauthorized
+    data = ("<request><siteHolder>%s</siteHolder><user>%s</user><ticket>%s</ticket>" +
+            "<urlId>%s</urlId><authType>%s</authType><userAddress>%s</userAddress></request>") %
+           [wmid, info[:wmid], info[:ticket], info[:url_id], info[:auth_type], info[:user_ip]]
+    headers = {
+      'Content-Type' => 'application/x-www-form-urlencoded'
+    }
+    begin
+      resp, data = http.post(path, data, headers)
+      doc = REXML::Document.new(data)
+      return doc.elements["response"].attributes["retval"].to_i
+    rescue Exception => e
+      # TODO: log this error
+      Rails.logger.error("WmLogin authorize exception: " + e.inspect)
+      # internal error
+      return -1
     end
   end
 end
-
 
 module ActionWmLoginClass
   def wmlogin(*args)
@@ -75,6 +69,7 @@ module ActionWmLogin
     rid = args[0][:rid]
 
     res = WmLogin.authorize(request, rid, wmid)
+    # 3 - ticket expired
     if res == :unauthorized || res == 3
       redirect_to "https://login.wmtransfer.com/GateKeeper.aspx?RID=#{rid}"
     elsif res != 0
