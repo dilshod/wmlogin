@@ -14,9 +14,9 @@ module WmLogin
   #
   def self.authorize(request, rid, wmid)
     if request.params['WmLogin_Ticket'].nil? && request.session[:wminfo].nil?
-      return :unauthorized
+      info = nil
     elsif request.params['WmLogin_Ticket'].nil?
-      return request.session[:wminfo] ? 0 : :unauthorized
+      info = request.session[:wminfo]
     else
       info = {
         :ticket => request.params["WmLogin_Ticket"],
@@ -29,6 +29,7 @@ module WmLogin
         :user_ip => request.params["WmLogin_UserAddress"],
       }
     end
+    return :unauthorized unless info
 
     http = Net::HTTP.new('login.wmtransfer.com', 443)
     http.use_ssl = true
