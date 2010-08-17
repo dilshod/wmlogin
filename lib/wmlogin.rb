@@ -16,8 +16,7 @@ module WmLogin
     if request.params['WmLogin_Ticket'].nil? && request.session[:wminfo].nil?
       return :unauthorized
     elsif request.params['WmLogin_Ticket'].nil?
-      info = request.session[:wminfo]
-      return info ? info : :unauthorized
+      return request.session[:wminfo] ? 0 : :unauthorized
     else
       info = {
         :ticket => request.params["WmLogin_Ticket"],
