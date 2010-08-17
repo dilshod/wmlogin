@@ -13,10 +13,11 @@ module WmLogin
   # return status code https://login.wmtransfer.com/Help.aspx?AK=ws/result
   #
   def self.authorize(request, rid, wmid)
-    if request.params['WmLogin_Ticket'].blank? && request.session[:wminfo].blank?
-      info = nil
-    elsif request.params['WmLogin_Ticket'].blank?
+    if request.params['WmLogin_Ticket'].nil? && request.session[:wminfo].nil?
+      return :unauthorized
+    elsif request.params['WmLogin_Ticket'].nil?
       info = request.session[:wminfo]
+      return info ? info : :unauthorized
     else
       info = {
         :ticket => request.params["WmLogin_Ticket"],
@@ -28,9 +29,7 @@ module WmLogin
         :wmid => request.params["WmLogin_WMID"],
         :user_ip => request.params["WmLogin_UserAddress"],
       }
-      request.session[:wminfo] = info
     end
-    return :unauthorized unless info
 
     http = Net::HTTP.new('login.wmtransfer.com', 443)
     http.use_ssl = true
@@ -49,7 +48,9 @@ module WmLogin
     begin
       resp, data = http.post(path, data, headers)
       doc = REXML::Document.new(data)
-      return doc.elements["response"].attributes["retval"].to_i
+      res = doc.elements["response"].attributes["retval"].to_i
+      request.session[:wminfo] = info if res == 0
+      return res
     rescue Exception => e
       # TODO: log this error
       Rails.logger.error("WmLogin authorize exception: " + e.inspect)
