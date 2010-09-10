@@ -58,6 +58,55 @@ module WmLogin
       return -1
     end
   end
+
+  #
+  # Verify ticket
+  # return status code https://login.wmtransfer.com/Help.aspx?AK=ws/result
+  #
+  def self.verify(request, ticket, wmid, password)
+    http = Net::HTTP.new('login.wmtransfer.com', 443)
+    http.use_ssl = true
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+    path = '/ws/ProtectedSecurity.asmx'
+    data = "<?xml version='1.0' encoding='utf-8'?>" +
+"<soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'>" +
+"  <soap:Body><GetTicketInfo xmlns='http://WmLogin.webmoney.ru/'>" +
+"      <siteHolderWmId>#{wmid}</siteHolderWmId>" +
+"      <password>#{password}</password>" +
+"      <ticket>#{ticket}</ticket>" +
+"  </GetTicketInfo></soap:Body>" +
+"</soap:Envelope>"
+    headers = {
+      'Content-Type' => 'text/xml; charset=utf-8',
+      'SOAPAction' => '"http://WmLogin.webmoney.ru/GetTicketInfo"'
+    }
+    begin
+      resp, data = http.post(path, data, headers)
+      doc = REXML::Document.new(data)
+      d = doc[1][0][0]
+      res = d.elements['GetTicketInfoResult'].text.to_i
+      if res == 0
+        info = {
+          :ticket => ticket,
+          :url_id => d.elements["urlId"].text,
+          :expires => d.elements["expires"].text,
+          :auth_type => d.elements["authType"].text,
+          :last_access => d.elements["lastAccess"].text,
+          :created => d.elements["created"].text,
+          :wmid => d.elements['wmId'].text,
+          :user_ip => d.elements["userAddress"].text,
+        }
+        request.session[:wminfo] = info
+      end
+      return res
+    rescue Exception => e
+      # TODO: log this error
+      Rails.logger.error("WmLogin authorize exception: " + e.inspect)
+      # internal error
+      return -1
+    end
+  end
 end
 
 module ActionWmLoginClass
@@ -72,14 +121,24 @@ module ActionWmLogin
   def wmlogin(*args)
     wmid = args[0][:wmid]
     rid = args[0][:rid]
+    password = args[0][:password]
+    check_ip = args[0][:check_ip]
+    check_ip = RAILS_ENV == "production" if check_ip.nil?
 
     res = WmLogin.authorize(request, rid, wmid)
+    if res != 0 && request.params[:ticket] && request.params[:ticket] =~ /^[0-9a-zA-Z\!\-\$\#]{40,60}$/ && password
+      res = WmLogin.verify(request, request.params[:ticket], wmid, password)
+    end
+
     # 3 - ticket expired
     if res == :unauthorized || res == 3
       redirect_to "https://login.wmtransfer.com/GateKeeper.aspx?RID=#{rid}"
     elsif res != 0
       raise "AccessDenied"
     else
+      if check_ip && session[:wminfo][:user_ip] != request.ip
+        raise "AccessDenied"
+      end
       @wmuser = session[:wminfo]
     end
   end
