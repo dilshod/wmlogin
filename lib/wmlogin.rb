@@ -4,6 +4,7 @@
 # API: https://login.wmtransfer.com/Help.aspx?AK=default
 #
 
+require 'time'
 require 'rexml/document'
 require 'net/http'
 require 'net/https'
@@ -119,15 +120,28 @@ end
 
 module ActionWmLogin
   def wmlogin(*args)
+    if params["WmLogin_KeeperRetVal"] == '4'
+      render :action => "canceled"
+      return
+    end
+
     wmid = args[0][:wmid]
     rid = args[0][:rid]
     password = args[0][:password]
     check_ip = args[0][:check_ip]
-    check_ip = RAILS_ENV == "production" if check_ip.nil?
+    each_request = args[0][:each_request]
+    expires = args[0][:expires] || 60
+    check_ip = Rails.env == "production" if check_ip.nil?
 
-    res = WmLogin.authorize(request, rid, wmid)
-    if res != 0 && request.params[:ticket] && request.params[:ticket] =~ /^[0-9a-zA-Z\!\-\$\#]{40,60}$/ && password
-      res = WmLogin.verify(request, request.params[:ticket], wmid, password)
+    Session.delete_all(["updated_at < ?", Time.now - expires.minutes])
+
+    if !each_request && session[:wminfo].is_a?(Hash) && !session[:wminfo][:ticket].blank? && session[:expires_at] > Time.now
+      res = 0
+    else
+      res = WmLogin.authorize(request, rid, wmid)
+      if res != 0 && request.params[:ticket] && request.params[:ticket] =~ /^[0-9a-zA-Z\!\-\$\#]{40,60}$/ && password
+        res = WmLogin.verify(request, request.params[:ticket], wmid, password)
+      end
     end
 
     # 3 - ticket expired
@@ -139,6 +153,7 @@ module ActionWmLogin
       if check_ip && session[:wminfo][:user_ip] != request.ip
         raise "AccessDenied"
       end
+      session[:expires_at] = Time.now + expires.minutes
       @wmuser = session[:wminfo]
     end
   end
